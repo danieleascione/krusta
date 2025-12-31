@@ -27,7 +27,7 @@ Physically, this continuous logical log is broken down into multiple **log segme
 
 The "log" is physically just a collection of segment files in S3. The real intelligence lies in the metadata layer, which provides the logical view of a continuous, ordered log. This layer is responsible for:
 
--   **Segment Discovery**: How do consumers know which S3 objects make up a partition's log?
+-   **Segment Discovery**: How do consumers know which S3 objects make up a shard's log?
 -   **Offset Mapping**: Which segment file contains a specific offset?
 -   **Consistency**: How do we prevent consumers from reading partially written or uncommitted segments?
 
@@ -39,7 +39,7 @@ The choice of where and how to store metadata involves a trade-off between coord
 
 | Option | Storage Mechanism | Update Pattern | Consistency Model | Pros | Cons |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **S3-Only Manifest** | A single manifest object per partition in S3. | **Mutable Head Pointer**: The manifest is a file that is read, updated in memory, and overwritten on S3 using conditional PUTs (`If-Match` with ETag) to ensure atomic updates. | **Atomic Updates**: Readers see a consistent view of the log. New segments become visible only when the manifest is successfully updated. | - No external dependencies<br>- Low operational overhead<br>- Cost-effective | - Potential for high contention on the single manifest object<br>- Complex to implement correctly (handling retries, ABA problem) |
+| **S3-Only Manifest** | A single manifest object per internal shard in S3. | **Mutable Head Pointer**: The manifest is a file that is read, updated in memory, and overwritten on S3 using conditional PUTs (`If-Match` with ETag) to ensure atomic updates. | **Atomic Updates**: Readers see a consistent view of the log. New segments become visible only when the manifest is successfully updated. | - No external dependencies<br>- Low operational overhead<br>- Cost-effective | - Potential for high contention on the single manifest object<br>- Complex to implement correctly (handling retries, ABA problem) |
 | **Append-Only Manifests** | A series of manifest files in S3, linked together. | **Append-Only**: Instead of overwriting a single manifest, new metadata is written to a new, uniquely named manifest file. A "head" pointer object tracks the latest manifest. | **Eventual Consistency**: Readers list manifest files and merge them to get the current state. Requires a mechanism to discover the latest "head". | - Avoids contention on a single object<br>- Simpler write path | - More complex read path (listing and merging)<br>- Slower discovery of new segments | 
 | **External Coordinator (DynamoDB/Etcd)** | Use a dedicated, strongly consistent database. | **Transactional Updates**: Use the database's atomic operations to update partition metadata. | **Strong Consistency**: The database is the source of truth. Readers query it to find the current set of log segments. | - Simplifies coordination logic<br>- Strong consistency guarantees<br>- Mature and well-understood | - Adds an external dependency<br>- Higher operational cost and complexity<br>- Potential for the coordinator to become a bottleneck |
 
@@ -127,7 +127,7 @@ stateDiagram-v2
 -   **BUFFERING**: Messages are collected in the Agent's memory.
 -   **UPLOADING**: The agent writes the buffered batch to a **temporary, unique key** in S3 (e.g., `segments/temp-uuid-123`). This prevents readers from accidentally discovering it.
 -   **COMMITTED**: The S3 PUT operation for the temporary key completes successfully. The data is now durably stored in S3, but not yet visible to consumers.
--   **VISIBLE**: The agent atomically updates the partition's manifest file to include the new segment. Only after this metadata update is successful can consumers discover and read from the segment. This is the crucial step that makes the publication atomic.
+-   **VISIBLE**: The agent atomically updates the shard's manifest file to include the new segment. Only after this metadata update is successful can consumers discover and read from the segment. This is the crucial step that makes the publication atomic.
 -   **COMPACTED/RETIRED**: Older segments may be merged into larger ones by a background process, or deleted after their retention period has expired.
 
 ### Handling Failures
@@ -137,11 +137,33 @@ stateDiagram-v2
 
 This two-phase commit protocol (write data, then commit metadata) ensures that the log remains consistent and that consumers only ever see a coherent, linear history of committed data.
 
-## 5. API & Guarantees
+## 2. Operating Modes: Ordered vs. Unordered
 
-Before diving into implementation strategies, it's crucial to define the contract Krust offers to its users. These guarantees shape the system's design and set clear expectations.
+Krust simplifies the traditional message bus model by replacing the concept of user-facing partitions with two distinct operating modes per topic. This allows users to choose the trade-off between ordering and throughput that best suits their use case.
 
--   **Ordering**: Krust guarantees strict message ordering **within a single partition**. There are no ordering guarantees across different partitions of the same topic or across different topics.
+### Mode 1: Ordered (by Key)
+
+This is the default and recommended mode for most use cases that require ordering, such as event sourcing or change data capture.
+
+-   **How it works**: The user provides a `key` with each message. Krust guarantees that all messages with the same key will be processed in the order they were produced.
+-   **Internal Mechanism**: Internally, Krust uses a consistent hashing function to map a key to a specific internal **shard**. Each shard is an independent, ordered log, similar to a traditional partition. This sharding mechanism is completely transparent to the user.
+-   **API**: `produce(topic, key, message)`
+
+### Mode 2: Unordered
+
+This mode is designed for maximum throughput when ordering is not a concern, such as for logging, metrics, or other high-volume, non-sequential data.
+
+-   **How it works**: The user does not provide a key. Krust writes the message to any available internal shard to maximize write parallelism.
+-   **Internal Mechanism**: Agents can write to any shard, likely using a round-robin or least-loaded strategy.
+-   **API**: `produce(topic, message)`
+
+## 3. API & Guarantees
+
+Before diving into implementation strategies, it's crucial to define the contract Krust offers to its users. These guarantees shape the system's design and set clear expectations, and they now depend on the chosen operating mode.
+
+-   **Ordering**: 
+    -   **Ordered Mode**: Strict message ordering is guaranteed **for all messages sharing the same key**.
+    -   **Unordered Mode**: There are **no ordering guarantees** whatsoever.
 
 -   **Delivery Semantics**: Krust will provide **at-least-once delivery**. In the event of certain failures (e.g., a producer retry after a timeout), it is possible for a message to be delivered more than once. Consumers should be designed to be idempotent to handle potential duplicates.
 
@@ -182,7 +204,7 @@ This approach leverages AWS's low-latency storage tier.
 This is a more advanced approach, inspired by Chroma's `wal3`, that uses a new S3 feature to build concurrent data structures directly on object storage. **This approach is considered a future research area and is not part of the initial MVP.**
 
 -   **How it works**: It uses S3's `If-None-Match` and `If-Match` conditional write features to perform atomic, lock-free operations.
-    -   The object guarded by `If-Match` would be the **manifest "head" object** for a partition. An agent would read this manifest, get its ETag, create a new log segment, and then try to overwrite the manifest with a new version (pointing to the new segment) using the ETag as a precondition.
+    -   The object guarded by `If-Match` would be the **manifest "head" object** for an internal shard. An agent would read this manifest, get its ETag, create a new log segment, and then try to overwrite the manifest with a new version (pointing to the new segment) using the ETag as a precondition.
     -   This effectively creates a compare-and-swap (CAS) loop on the S3 object.
 
 -   **Challenges & Open Questions**:
@@ -190,10 +212,10 @@ This is a more advanced approach, inspired by Chroma's `wal3`, that uses a new S
     -   **ABA Problem**: A classic concurrency problem where a value is read (A), changed to something else (B), and then changed back to the original value (A). A simple ETag check might not detect this, leading to inconsistent state. This would require more sophisticated versioning or fencing tokens within the manifest itself.
     -   **Complexity**: The logic to handle retries, backoff, and the ABA problem is non-trivial and adds significant complexity compared to a simpler single-writer model.
 
--   **Pros**: If solved, it could enable true multi-writer capabilities for a single partition, offering very high concurrency.
+-   **Pros**: If solved, it could enable true multi-writer capabilities for a single shard, offering very high concurrency.
 -   **Cons**: Highly complex to implement correctly and robustly. Performance under high contention is a major unknown.
 
-For the initial MVP (based on Approach A), the concurrency model will be simpler: **a single writer per partition**. This can be enforced by the metadata layer or by convention in the agents. This avoids the complexities of multi-writer coordination while still providing high throughput via batching.
+For the initial MVP (based on Approach A), the concurrency model will be simpler: **a single writer per shard**. This can be enforced by the metadata layer or by convention in the agents. This avoids the complexities of multi-writer coordination while still providing high throughput via batching.
 
 ### Approach D: Parallel Writes with Quorum
 
@@ -225,7 +247,7 @@ To deliver a focused MVP, the following features are explicitly out of scope for
 
 -   **Exactly-Once Semantics**: The MVP will provide at-least-once delivery. Exactly-once requires more complex state management on both the client and server side.
 -   **Transactions**: The ability to produce messages to multiple partitions atomically will not be supported.
--   **Cross-Partition Ordering**: As stated in the guarantees, ordering is only maintained within a single partition.
+-   **Cross-Key/Cross-Shard Ordering**: As stated in the guarantees, ordering is only maintained within a single partition.
 -   **Geo-Replication**: The initial focus is on a single-region deployment.
 
 ### MVP Architecture Sketch (Approach A)
@@ -235,7 +257,7 @@ The initial implementation will be based on **Approach A: Aggressive Batching**.
 **Components**:
 
 1.  **Agent**:
-    -   In-memory buffer per partition.
+    -   In-memory buffer per shard.
     -   Flushes buffer to S3 on a timer (`batch.timeout`) or when the buffer is full (`batch.size`).
     -   Implements the segment publication protocol (write to temp key, then commit to manifest).
 
@@ -245,12 +267,12 @@ The initial implementation will be based on **Approach A: Aggressive Batching**.
     -   **Footer**: A sparse index mapping offsets to byte positions within the segment.
 
 3.  **Manifest/Index Store**:
-    -   An S3-only manifest file per partition (e.g., `partitions/topic-A/0/manifest.json`).
+    -   An S3-only manifest file per shard (e.g., `shards/topic-A/0/manifest.json`).
     -   The manifest will be a simple JSON object containing a list of all visible segment files for that partition.
     -   Updates will use conditional PUTs (`If-Match` with ETag) for atomic updates.
 
 4.  **Reader Discovery Loop**:
-    -   A consumer will periodically poll the partition's manifest file.
+    -   A consumer will periodically poll the relevant shard's manifest file.
     -   If the manifest has changed (detected via ETag), the consumer will read the new segment list and begin fetching data from any new segments.
 
 ### Open Questions
@@ -258,7 +280,7 @@ The initial implementation will be based on **Approach A: Aggressive Batching**.
 This list tracks key design decisions that need to be finalized:
 
 -   **Metadata Store**: While the MVP will use an S3-only manifest, should we build an abstraction layer to easily swap to an external coordinator (like DynamoDB) later?
--   **Partitioning Strategy**: How are partitions assigned to agents? Static configuration, or a dynamic assignment via a coordinator?
+-   **Sharding Strategy**: How are shards assigned to agents? How many shards should be created for a topic? Is it a fixed number or can it scale dynamically?
 -   **Publish Protocol Details**: What is the exact retry and backoff strategy for manifest updates under contention?
 -   **Consumer Offset Storage**: Where do consumers store their progress (offsets)? Should Krust provide a built-in mechanism (e.g., committing offsets back to a dedicated S3 key), or should consumers manage this themselves (similar to early Kafka versions)?
 -   **API Protocol**: Kafka protocol compatibility vs. a simpler, custom gRPC-based protocol for the MVP?"
