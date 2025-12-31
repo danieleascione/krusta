@@ -1,10 +1,10 @@
 # ideas.md: Core Log Structure & High-Throughput on S3
 
-This document explores the first item on the Krust roadmap: the implementation of the core log structure. It specifically addresses the challenge of achieving high throughput for a message bus built on a high-latency object store like Amazon S3.
+This document explores the first item on the Krusta roadmap: the implementation of the core log structure. It specifically addresses the challenge of achieving high throughput for a message bus built on a high-latency object store like Amazon S3.
 
 ## 1. The Core Log Structure
 
-The fundamental data structure in Krust is a **distributed, append-only log**. This log is composed of a sequence of immutable files (log segments) stored in an object store. Each message is assigned a unique, monotonically increasing offset.
+The fundamental data structure in Krusta is a **distributed, append-only log**. This log is composed of a sequence of immutable files (log segments) stored in an object store. Each message is assigned a unique, monotonically increasing offset.
 
 ### Logical View
 
@@ -139,39 +139,39 @@ This two-phase commit protocol (write data, then commit metadata) ensures that t
 
 ## 2. Operating Modes: Ordered vs. Unordered
 
-Krust simplifies the traditional message bus model by replacing the concept of user-facing partitions with two distinct operating modes per topic. This allows users to choose the trade-off between ordering and throughput that best suits their use case.
+Krusta simplifies the traditional message bus model by replacing the concept of user-facing partitions with two distinct operating modes per topic. This allows users to choose the trade-off between ordering and throughput that best suits their use case.
 
 ### Mode 1: Ordered (by Key)
 
 This is the default and recommended mode for most use cases that require ordering, such as event sourcing or change data capture.
 
--   **How it works**: The user provides a `key` with each message. Krust guarantees that all messages with the same key will be processed in the order they were produced.
--   **Internal Mechanism**: Internally, Krust uses a consistent hashing function to map a key to a specific internal **shard**. Each shard is an independent, ordered log, similar to a traditional partition. This sharding mechanism is completely transparent to the user.
+-   **How it works**: The user provides a `key` with each message. Krusta guarantees that all messages with the same key will be processed in the order they were produced.
+-   **Internal Mechanism**: Internally, Krusta uses a consistent hashing function to map a key to a specific internal **shard**. Each shard is an independent, ordered log, similar to a traditional partition. This sharding mechanism is completely transparent to the user.
 -   **API**: `produce(topic, key, message)`
 
 ### Mode 2: Unordered
 
 This mode is designed for maximum throughput when ordering is not a concern, such as for logging, metrics, or other high-volume, non-sequential data.
 
--   **How it works**: The user does not provide a key. Krust writes the message to any available internal shard to maximize write parallelism.
+-   **How it works**: The user does not provide a key. Krusta writes the message to any available internal shard to maximize write parallelism.
 -   **Internal Mechanism**: Agents can write to any shard, likely using a round-robin or least-loaded strategy.
 -   **API**: `produce(topic, message)`
 
 ## 3. API & Guarantees
 
-Before diving into implementation strategies, it's crucial to define the contract Krust offers to its users. These guarantees shape the system's design and set clear expectations, and they now depend on the chosen operating mode.
+Before diving into implementation strategies, it's crucial to define the contract Krusta offers to its users. These guarantees shape the system's design and set clear expectations, and they now depend on the chosen operating mode.
 
 -   **Ordering**: 
     -   **Ordered Mode**: Strict message ordering is guaranteed **for all messages sharing the same key**.
     -   **Unordered Mode**: There are **no ordering guarantees** whatsoever.
 
--   **Delivery Semantics**: Krust will provide **at-least-once delivery**. In the event of certain failures (e.g., a producer retry after a timeout), it is possible for a message to be delivered more than once. Consumers should be designed to be idempotent to handle potential duplicates.
+-   **Delivery Semantics**: Krusta will provide **at-least-once delivery**. In the event of certain failures (e.g., a producer retry after a timeout), it is possible for a message to be delivered more than once. Consumers should be designed to be idempotent to handle potential duplicates.
 
 -   **Producer Acknowledgement (`ack`)**: A `produce()` call will be acknowledged as successful only after the message batch containing the message has been durably persisted in the S3 object store. For higher durability configurations (like Approach D), this would mean waiting for a quorum of writes to succeed.
 
 -   **Consumer Visibility**: A message becomes visible to consumers only after its corresponding log segment has been successfully written to S3 and the metadata layer has been updated to include that segment. This ensures that consumers never see partially written or uncommitted data.
 
--   **Durability**: Krust aims for high durability by leveraging the underlying durability of the object store (e.g., S3's 99.999999999%). Data is considered durably stored once the S3 PUT request for its log segment completes successfully. The system does not tolerate data loss for acknowledged writes.
+-   **Durability**: Krusta aims for high durability by leveraging the underlying durability of the object store (e.g., S3's 99.999999999%). Data is considered durably stored once the S3 PUT request for its log segment completes successfully. The system does not tolerate data loss for acknowledged writes.
 
 ## 3. The High-Throughput Challenge with S3
 
@@ -183,7 +183,7 @@ Here are several proposed approaches to achieve this:
 
 This is the most fundamental strategy, inspired by systems like WarpStream.
 
--   **How it works**: The Krust Agent buffers incoming messages in memory for a configurable period (e.g., 50-250ms) or until a certain size is reached. It then writes this entire batch as a single log segment file to S3. A single S3 PUT operation thus commits hundreds or thousands of messages at once.
+-   **How it works**: The Krusta Agent buffers incoming messages in memory for a configurable period (e.g., 50-250ms) or until a certain size is reached. It then writes this entire batch as a single log segment file to S3. A single S3 PUT operation thus commits hundreds or thousands of messages at once.
 -   **Pros**: Simple to implement, dramatically increases write throughput.
 -   **Cons**: Introduces a small amount of latency (the batching window). There is a trade-off between latency and cost (smaller batches mean more S3 PUT requests).
 
@@ -197,7 +197,7 @@ This approach leverages AWS's low-latency storage tier.
 -   **Pros**: Achieves low end-to-end latency for producers. Optimizes storage costs by only keeping recent data in the more expensive tier.
 -   **Cons**: Increased complexity. S3 Express is single-AZ, so for durability, data must be replicated across multiple S3 Express buckets in different AZs, which adds to the cost and complexity.
 
--   **Durability Story**: Krust **does not tolerate data loss for acknowledged writes**. When using S3 Express, replication of a log segment across a quorum of S3 Express buckets in different Availability Zones **must complete before** the write is acknowledged to the producer. This ensures that the system can tolerate the loss of a single AZ without losing any acknowledged data. There is no accepted data loss window.
+-   **Durability Story**: Krusta **does not tolerate data loss for acknowledged writes**. When using S3 Express, replication of a log segment across a quorum of S3 Express buckets in different Availability Zones **must complete before** the write is acknowledged to the producer. This ensures that the system can tolerate the loss of a single AZ without losing any acknowledged data. There is no accepted data loss window.
 
 ### Approach C: Lock-Free Coordination with Conditional Writes (Future Research)
 
@@ -234,7 +234,7 @@ This approach focuses on improving both latency and durability.
 | **C: Lock-Free** | Atomic S3 operations for coordination | Low | Very High | High | Low |
 | **D: Parallel/Quorum** | Parallel writes to multiple buckets | Low | High | Medium | High |
 
-For the initial implementation of Krust, **Approach A (Aggressive Batching)** is the most practical starting point. It provides a solid foundation for high throughput and can be extended later with the other, more advanced approaches as the project matures.
+For the initial implementation of Krusta, **Approach A (Aggressive Batching)** is the most practical starting point. It provides a solid foundation for high throughput and can be extended later with the other, more advanced approaches as the project matures.
 
 
 ## 6. Document Structure Improvements
@@ -282,5 +282,5 @@ This list tracks key design decisions that need to be finalized:
 -   **Metadata Store**: While the MVP will use an S3-only manifest, should we build an abstraction layer to easily swap to an external coordinator (like DynamoDB) later?
 -   **Sharding Strategy**: How are shards assigned to agents? How many shards should be created for a topic? Is it a fixed number or can it scale dynamically?
 -   **Publish Protocol Details**: What is the exact retry and backoff strategy for manifest updates under contention?
--   **Consumer Offset Storage**: Where do consumers store their progress (offsets)? Should Krust provide a built-in mechanism (e.g., committing offsets back to a dedicated S3 key), or should consumers manage this themselves (similar to early Kafka versions)?
+-   **Consumer Offset Storage**: Where do consumers store their progress (offsets)? Should Krusta provide a built-in mechanism (e.g., committing offsets back to a dedicated S3 key), or should consumers manage this themselves (similar to early Kafka versions)?
 -   **API Protocol**: Kafka protocol compatibility vs. a simpler, custom gRPC-based protocol for the MVP?"

@@ -1,24 +1,24 @@
-# Krust: A Cloud-Native Message Bus for the Modern Era
+# Krusta: A Cloud-Native Message Bus for the Modern Era
 
-Krust is a next-generation, distributed message bus built in Rust. It is designed from the ground up to be fully cloud-compatible, leveraging external blob storage (like Amazon S3) to provide a durable, scalable, and cost-effective messaging solution. Inspired by the architectural principles of systems like Apache Kafka and WarpStream, Krust aims to provide the power of a log-based message bus with the operational simplicity of a stateless, cloud-native application.
+Krusta is a next-generation, distributed message bus built in Rust. It is designed from the ground up to be fully cloud-compatible, leveraging external blob storage (like Amazon S3) to provide a durable, scalable, and cost-effective messaging solution. Inspired by the architectural principles of systems like Apache Kafka and WarpStream, Krusta aims to provide the power of a log-based message bus with the operational simplicity of a stateless, cloud-native application.
 
 ## Core Concepts
 
-At its heart, Krust is a **distributed, append-only log**. This simple yet powerful data structure provides an immutable, ordered sequence of records. Messages are written to the end of the log and are identified by an offset. Consumers can read from any point in the log, allowing for flexible and replayable data consumption patterns. This log-centric design is the foundation for Krust's durability, scalability, and performance.
+At its heart, Krusta is a **distributed, append-only log**. This simple yet powerful data structure provides an immutable, ordered sequence of records. Messages are written to the end of the log and are identified by an offset. Consumers can read from any point in the log, allowing for flexible and replayable data consumption patterns. This log-centric design is the foundation for Krusta's durability, scalability, and performance.
 
 ## Proposed Architecture
 
-Krust's architecture is founded on a key design philosophy: the **separation of concerns**. By decoupling different parts of the system, we can achieve greater scalability, resilience, and operational efficiency.
+Krusta's architecture is founded on a key design philosophy: the **separation of concerns**. By decoupling different parts of the system, we can achieve greater scalability, resilience, and operational efficiency.
 
 ### Design Philosophy
 
-1.  **Separation of Storage and Compute**: Traditional message brokers often colocate storage and compute on the same nodes. Krust separates these, using a dedicated object storage service (like S3) for data persistence and a separate set of stateless compute nodes (Agents) for processing. This allows compute resources to be scaled independently based on load, without the need for complex and costly data rebalancing.
+1.  **Separation of Storage and Compute**: Traditional message brokers often colocate storage and compute on the same nodes. Krusta separates these, using a dedicated object storage service (like S3) for data persistence and a separate set of stateless compute nodes (Agents) for processing. This allows compute resources to be scaled independently based on load, without the need for complex and costly data rebalancing.
 
 2.  **Separation of Data and Metadata**: The actual message data (the log segments) is stored in the object storage layer. The metadata—information about topics, partitions, offsets, and the location of data files—is managed by a dedicated metadata service. This separation enhances security, as the control plane does not need access to the raw message data, and allows for specialized, highly-optimized stores for each type of information.
 
 ### System Components
 
-The Krust architecture consists of three primary components:
+The Krusta architecture consists of three primary components:
 
 | Component | Description | Technology | Responsibilities |
 | :--- | :--- | :--- | :--- |
@@ -26,7 +26,7 @@ The Krust architecture consists of three primary components:
 | **Storage Layer** | A durable, highly-available object store. | S3-compatible APIs | - Persist all log segment data<br>- Ensure data durability and availability | 
 | **Metadata Layer** | A service responsible for all system metadata. | Pluggable (e.g., Etcd, PostgreSQL, or embedded DB) | - Manage topic and partition information<br>- Track consumer group offsets<br>- Maintain the mapping between log offsets and files in the Storage Layer | 
 
-![Krust Architecture Diagram](https://i.imgur.com/example.png)  
+![Krusta Architecture Diagram](https://i.imgur.com/example.png)  
 *A high-level diagram illustrating the separation of Agent (compute), S3 (storage), and the Metadata Layer.*
 
 ### Data Flow
@@ -57,4 +57,4 @@ This project is in its initial stages. The following is a proposed roadmap for d
 
 ---
 
-*This README outlines the initial vision and architecture for Krust. As the project evolves, this document will be updated to reflect the latest design and implementation details.*
+*This README outlines the initial vision and architecture for Krusta. As the project evolves, this document will be updated to reflect the latest design and implementation details.*
