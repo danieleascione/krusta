@@ -1,8 +1,21 @@
 # Krusta Implementation Plan
 
+## Progress
+- ✅ Step 1: Error Handling (PR: claude/error-handling-LbutD)
+- 🔄 **Step 2: Segment Structure** ← YOU ARE HERE
+- ⏳ Step 3: Storage Abstraction
+- ⏳ Step 4: Memory Backend
+- ⏳ Step 5: Segment Index
+- ⏳ Step 6: Update Log
+- ⏳ Step 7: Batching
+- ⏳ Step 8: S3 Backend
+- ⏳ Step 9: Configuration
+- ⏳ Step 10: Integration Tests
+
 ## Current State
 - `src/log.rs` - HashMap storage, sync API
-- Tests: create, append, read by offset
+- `src/error.rs` - KrustaError enum with 4 variants ✅
+- Tests: 7/7 passing
 - Dependencies: tokio, aws-sdk-s3, bytes, thiserror
 
 ## Goal
@@ -15,31 +28,20 @@ Messages → Batches → Segments → S3
 
 ## Steps
 
-### Step 1: Error Handling
+### Step 1: Error Handling ✅ COMPLETE
 
-**File:** `src/error.rs`
+**Status:** Merged
+**Branch:** `claude/error-handling-LbutD`
+**Files:** `src/error.rs`, `src/main.rs`
 
-```rust
-#[derive(Error, Debug)]
-pub enum KrustaError {
-    #[error("Storage error: {0}")]
-    Storage(String),
-    #[error("Segment not found: {0}")]
-    SegmentNotFound(String),
-    #[error("Invalid offset: {0}")]
-    InvalidOffset(u64),
-    #[error("Serialization error: {0}")]
-    Serialization(String),
-}
-
-pub type Result<T> = std::result::Result<T, KrustaError>;
-```
-
-**Tests:** Create each error, convert to string.
+Implemented:
+- KrustaError enum with 4 variants (Storage, SegmentNotFound, InvalidOffset, Serialization)
+- Result<T> type alias
+- Full test coverage (4 tests)
 
 ---
 
-### Step 2: Segment Structure
+### Step 2: Segment Structure ← NEXT
 
 **File:** `src/segment.rs`
 
