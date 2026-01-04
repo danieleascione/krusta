@@ -2,8 +2,8 @@
 
 ## Progress
 - ✅ Step 1: Error Handling (PR: claude/error-handling-LbutD)
-- 🔄 **Step 2: Segment Structure** ← YOU ARE HERE
-- ⏳ Step 3: Storage Abstraction
+- ✅ Step 2: Segment Structure (Branch: claude/implement-plan-item-w9iIE)
+- 🔄 **Step 3: Storage Abstraction** ← YOU ARE HERE
 - ⏳ Step 4: Memory Backend
 - ⏳ Step 5: Segment Index
 - ⏳ Step 6: Update Log
@@ -15,7 +15,8 @@
 ## Current State
 - `src/log.rs` - HashMap storage, sync API
 - `src/error.rs` - KrustaError enum with 4 variants ✅
-- Tests: 7/7 passing
+- `src/segment.rs` - Segment structure with serialization ✅
+- Tests: 12/12 passing
 - Dependencies: tokio, aws-sdk-s3, bytes, thiserror
 
 ## Goal
