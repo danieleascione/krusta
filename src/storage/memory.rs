@@ -54,4 +54,11 @@ mod tests {
         let result = backend.read("missing").await;
         assert!(result.is_err());
     }
+
+    #[tokio::test]
+    async fn test_list_empty_returns_empty() {
+        let backend = MemoryBackend::new();
+        let result = backend.list("").await.unwrap();
+        assert_eq!(result, Vec::<String>::new());
+    }
 }
