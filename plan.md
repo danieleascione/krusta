@@ -4,8 +4,8 @@
 - ✅ Step 1: Error Handling (PR: claude/error-handling-LbutD)
 - ✅ Step 2: Segment Structure (Branch: claude/implement-plan-item-w9iIE)
 - ✅ Step 3: Storage Abstraction (Branch: claude/implement-next-plan-item-XtsMh)
-- 🔄 **Step 4: Memory Backend** ← YOU ARE HERE
-- ⏳ Step 5: Segment Index
+- ✅ Step 4: Memory Backend (Branch: claude/implement-next-plan-item-XtsMh)
+- 🔄 **Step 5: Segment Index** ← YOU ARE HERE
 - ⏳ Step 6: Update Log
 - ⏳ Step 7: Batching
 - ⏳ Step 8: S3 Backend
@@ -17,7 +17,8 @@
 - `src/error.rs` - KrustaError enum with 4 variants ✅
 - `src/segment.rs` - Segment structure with serialization ✅
 - `src/storage/mod.rs` - StorageBackend trait ✅
-- Tests: 12/12 passing
+- `src/storage/memory.rs` - MemoryBackend implementation ✅
+- Tests: 17/17 passing
 - Dependencies: tokio, aws-sdk-s3, bytes, thiserror, async-trait
 
 ## Goal
@@ -85,7 +86,7 @@ No tests (trait only).
 
 ---
 
-### Step 4: Memory Backend
+### Step 4: Memory Backend ✅ COMPLETE
 
 **File:** `src/storage/memory.rs`
 
