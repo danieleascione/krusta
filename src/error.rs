@@ -8,6 +8,8 @@ pub enum KrustaError {
     SegmentNotFound(String),
     #[error("Invalid offset: {0}")]
     InvalidOffset(u64),
+    #[error("Serialization error: {0}")]
+    Serialization(String),
 }
 
 pub type Result<T> = std::result::Result<T, KrustaError>;
@@ -32,5 +34,11 @@ mod tests {
     fn test_invalid_offset_error() {
         let err = KrustaError::InvalidOffset(999);
         assert_eq!(err.to_string(), "Invalid offset: 999");
+    }
+
+    #[test]
+    fn test_serialization_error() {
+        let err = KrustaError::Serialization("invalid format".to_string());
+        assert_eq!(err.to_string(), "Serialization error: invalid format");
     }
 }
