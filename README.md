@@ -2,6 +2,92 @@
 
 Krust is a next-generation, distributed message bus built in Rust. It is designed from the ground up to be fully cloud-compatible, leveraging external blob storage (like Amazon S3) to provide a durable, scalable, and cost-effective messaging solution. Inspired by the architectural principles of systems like Apache Kafka and WarpStream, Krust aims to provide the power of a log-based message bus with the operational simplicity of a stateless, cloud-native application.
 
+## Getting Started
+
+### Prerequisites
+
+You'll need Rust installed on your system. If you don't have it yet:
+
+**Install Rust** (all platforms):
+```bash
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+```
+
+After installation, restart your terminal or run:
+```bash
+source $HOME/.cargo/env
+```
+
+Verify installation:
+```bash
+rustc --version
+cargo --version
+```
+
+### Running the Project
+
+**1. Clone the repository:**
+```bash
+git clone https://github.com/danieleascione/krusta.git
+cd krusta
+```
+
+**2. Run tests:**
+```bash
+cargo test
+```
+This will:
+- Download and compile all dependencies (first run takes a few minutes)
+- Run all unit tests
+- Show you test results
+
+**3. Build the project:**
+```bash
+cargo build
+```
+For an optimized release build:
+```bash
+cargo build --release
+```
+
+**4. Run the application:**
+```bash
+cargo run
+```
+
+**5. Check your code (linting):**
+```bash
+cargo clippy
+```
+
+**6. Format your code:**
+```bash
+cargo fmt
+```
+
+### Common Cargo Commands
+
+- `cargo test` - Run all tests
+- `cargo test test_name` - Run a specific test
+- `cargo run` - Build and run the application
+- `cargo build` - Compile the project
+- `cargo build --release` - Compile with optimizations
+- `cargo check` - Quickly check if code compiles (no binary)
+- `cargo clean` - Remove build artifacts
+- `cargo doc --open` - Generate and open documentation
+
+### Project Status
+
+Currently implemented (using TDD):
+- ✅ Basic append-only log structure
+- ✅ In-memory message storage
+- ✅ Append and read operations
+
+Next steps:
+- ⏳ S3 storage backend integration
+- ⏳ Batching and segment management
+- ⏳ Stateless agent with HTTP endpoints
+
 ## Core Concepts
 
 At its heart, Krust is a **distributed, append-only log**. This simple yet powerful data structure provides an immutable, ordered sequence of records. Messages are written to the end of the log and are identified by an offset. Consumers can read from any point in the log, allowing for flexible and replayable data consumption patterns. This log-centric design is the foundation for Krust's durability, scalability, and performance.
