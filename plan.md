@@ -5,8 +5,8 @@
 - ✅ Step 2: Segment Structure (Branch: claude/implement-plan-item-w9iIE)
 - ✅ Step 3: Storage Abstraction (Branch: claude/implement-plan-item-w9iIE)
 - ✅ Step 4: Memory Backend (Branch: claude/implement-plan-item-w9iIE)
-- 🔄 **Step 5: Segment Index** ← YOU ARE HERE
-- ⏳ Step 6: Update Log
+- ✅ Step 5: Segment Index (Branch: claude/implement-plan-item-w9iIE)
+- 🔄 **Step 6: Update Log** ← YOU ARE HERE
 - ⏳ Step 7: Batching
 - ⏳ Step 8: S3 Backend
 - ⏳ Step 9: Configuration
@@ -18,7 +18,8 @@
 - `src/segment.rs` - Segment structure with serialization ✅
 - `src/storage/mod.rs` - StorageBackend trait ✅
 - `src/storage/memory.rs` - MemoryBackend implementation ✅
-- Tests: 17/17 passing
+- `src/segment_index.rs` - SegmentIndex with overlap detection ✅
+- Tests: 22/22 passing
 - Dependencies: tokio, aws-sdk-s3, bytes, thiserror, async-trait
 
 ## Goal
