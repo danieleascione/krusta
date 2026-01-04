@@ -31,9 +31,14 @@ impl StorageBackend for MemoryBackend {
         })
     }
 
-    async fn list(&self, _prefix: &str) -> Result<Vec<String>> {
+    async fn list(&self, prefix: &str) -> Result<Vec<String>> {
         let map = self.data.read().unwrap();
-        Ok(map.keys().cloned().collect())
+        let keys: Vec<String> = map
+            .keys()
+            .filter(|k| k.starts_with(prefix))
+            .cloned()
+            .collect();
+        Ok(keys)
     }
 }
 
@@ -71,5 +76,16 @@ mod tests {
         let mut result = backend.list("").await.unwrap();
         result.sort();
         assert_eq!(result, vec!["key1", "key2"]);
+    }
+
+    #[tokio::test]
+    async fn test_list_with_prefix_filters() {
+        let backend = MemoryBackend::new();
+        backend.write("segments/001", b"data1").await.unwrap();
+        backend.write("segments/002", b"data2").await.unwrap();
+        backend.write("other/003", b"data3").await.unwrap();
+        let mut result = backend.list("segments/").await.unwrap();
+        result.sort();
+        assert_eq!(result, vec!["segments/001", "segments/002"]);
     }
 }
