@@ -47,4 +47,11 @@ mod tests {
         let result = backend.read("key1").await.unwrap();
         assert_eq!(result, b"value1");
     }
+
+    #[tokio::test]
+    async fn test_read_missing_key_error() {
+        let backend = MemoryBackend::new();
+        let result = backend.read("missing").await;
+        assert!(result.is_err());
+    }
 }
