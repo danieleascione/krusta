@@ -32,7 +32,8 @@ impl StorageBackend for MemoryBackend {
     }
 
     async fn list(&self, _prefix: &str) -> Result<Vec<String>> {
-        Ok(Vec::new())
+        let map = self.data.read().unwrap();
+        Ok(map.keys().cloned().collect())
     }
 }
 
@@ -60,5 +61,15 @@ mod tests {
         let backend = MemoryBackend::new();
         let result = backend.list("").await.unwrap();
         assert_eq!(result, Vec::<String>::new());
+    }
+
+    #[tokio::test]
+    async fn test_list_returns_all_keys() {
+        let backend = MemoryBackend::new();
+        backend.write("key1", b"value1").await.unwrap();
+        backend.write("key2", b"value2").await.unwrap();
+        let mut result = backend.list("").await.unwrap();
+        result.sort();
+        assert_eq!(result, vec!["key1", "key2"]);
     }
 }
