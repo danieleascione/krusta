@@ -2,6 +2,17 @@
 
 Krusta is a next-generation, distributed message bus built in Rust. It is designed from the ground up to be fully cloud-compatible, leveraging external blob storage (like Amazon S3) to provide a durable, scalable, and cost-effective messaging solution. Inspired by the architectural principles of systems like Apache Kafka and WarpStream, Krusta aims to provide the power of a log-based message bus with the operational simplicity of a stateless, cloud-native application.
 
+## Experimental Project Notice
+
+**This is an experimental project developed using agentic coding tools.**
+
+This project serves as an exploration of AI-assisted software development using:
+- **Claude Code** - Anthropic's agentic coding assistant
+- **Test-Driven Development (TDD)** - Following strict red-green-refactor cycles
+- **Agentic workflows** - Autonomous AI-driven implementation
+
+The goal is to evaluate the effectiveness of agentic coding tools like Claude Code and Magnus in building a complex distributed system from scratch, using TDD principles throughout the development process.
+
 ## Getting Started
 
 ### Prerequisites
