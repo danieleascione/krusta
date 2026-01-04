@@ -3,8 +3,8 @@
 ## Progress
 - ✅ Step 1: Error Handling (PR: claude/error-handling-LbutD)
 - ✅ Step 2: Segment Structure (Branch: claude/implement-plan-item-w9iIE)
-- 🔄 **Step 3: Storage Abstraction** ← YOU ARE HERE
-- ⏳ Step 4: Memory Backend
+- ✅ Step 3: Storage Abstraction (Branch: claude/implement-plan-item-w9iIE)
+- 🔄 **Step 4: Memory Backend** ← YOU ARE HERE
 - ⏳ Step 5: Segment Index
 - ⏳ Step 6: Update Log
 - ⏳ Step 7: Batching
@@ -16,8 +16,9 @@
 - `src/log.rs` - HashMap storage, sync API
 - `src/error.rs` - KrustaError enum with 4 variants ✅
 - `src/segment.rs` - Segment structure with serialization ✅
+- `src/storage/mod.rs` - StorageBackend trait ✅
 - Tests: 12/12 passing
-- Dependencies: tokio, aws-sdk-s3, bytes, thiserror
+- Dependencies: tokio, aws-sdk-s3, bytes, thiserror, async-trait
 
 ## Goal
 Implement S3 storage backend with segment management.
